@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BD3 - Firestore Database (Etec)</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+    body {
+      background-color: #f4f6f8;
+      padding: 20px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    h1, h2 {
+      color: #333;
+    }
+    .card {
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .form-group {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    input {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      width: 100%;
+    }
+    button {
+      padding: 10px 15px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    button.delete-btn {
+      background-color: #dc3545;
+    }
+    button.delete-btn:hover {
+      background-color: #bd2130;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+      font-size: 14px;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>4ª Atividade - Firestore Database</h1>
+
+  <!-- Formulário para inserir registro -->
+  <div class="card">
+    <h2>Inserir Novo Aluno</h2>
+    <form id="student-form">
+      <div class="form-group">
+        <input type="number" id="cod_aluno" placeholder="Código do Aluno" required />
+        <input type="text" id="nome" placeholder="Nome Completo" required />
+        <input type="text" id="cpf" placeholder="CPF" required />
+        <input type="text" id="rg" placeholder="RG" required />
+        <input type="text" id="telefone_aluno" placeholder="Telefone do Aluno" required />
+        <input type="text" id="telefone_responsavel" placeholder="Telefone do Responsável" required />
+        <input type="email" id="email" placeholder="E-mail" required />
+        <input type="date" id="data_nascimento" required />
+      </div>
+      <button type="submit">Cadastrar Aluno</button>
+    </form>
+  </div>
+
+  <!-- Tabela para listar os registros -->
+  <div class="card">
+    <h2>Lista de Alunos Registrados</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Cód.</th>
+          <th>Nome</th>
+          <th>CPF</th>
+          <th>RG</th>
+          <th>Tel. Aluno</th>
+          <th>Tel. Resp.</th>
+          <th>E-mail</th>
+          <th>Data Nasc.</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="alunos-list">
+        <!-- Os dados do Firestore serão carregados aqui -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Firebase CDN (Modular SDK) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { 
+      getFirestore, 
+      collection, 
+      addDoc, 
+      onSnapshot, 
+      deleteDoc, 
+      doc, 
+      Timestamp 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // -------------------------------------------------------------
+    // a. Conectar com o projeto do Firebase (Substitua com as suas credenciais)
+    // -------------------------------------------------------------
+    const firebaseConfig = {
+    apiKey: "AIzaSyDqOgcccWRnj75yvYiy7zp5B-_KGhwaplg",
+    authDomain: "bd3-firebase-ae447.firebaseapp.com",
+    projectId: "bd3-firebase-ae447",
+    storageBucket: "bd3-firebase-ae447.firebasestorage.app",
+    messagingSenderId: "111730786519",
+    appId: "1:111730786519:web:c11ceefc6e9749eea53092"
+  };
+    // Inicializar Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // -------------------------------------------------------------
+    // b. Conectar com a coleção do Firestore ("BD3-NoSQL-Firestore")
+    // -------------------------------------------------------------
+    const alunosCollection = collection(db, "BD3-NoSQL-Firestore");
+
+    // -------------------------------------------------------------
+    // c. Inserir um registro de aluno (com o bónus do Timestamp)
+    // -------------------------------------------------------------
+    const studentForm = document.getElementById("student-form");
+
+    studentForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      // Implementação Bónus: Converter a data selecionada para Firestore Timestamp
+      const dateInputValue = document.getElementById("data_nascimento").value;
+      const dateParts = dateInputValue.split("-");
+      // Criar objeto Date (Ano, Mês [0-indexado], Dia)
+      const dateObject = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+      const timestampNascimento = Timestamp.fromDate(dateObject);
+
+      const novoAluno = {
+        cod_aluno: Number(document.getElementById("cod_aluno").value),
+        nome: document.getElementById("nome").value,
+        cpf: document.getElementById("cpf").value,
+        rg: document.getElementById("rg").value,
+        telefone_aluno: document.getElementById("telefone_aluno").value,
+        telefone_responsavel: document.getElementById("telefone_responsavel").value,
+        email: document.getElementById("email").value,
+        data_nascimento: timestampNascimento // Salvo como Timestamp
+      };
+
+      try {
+        await addDoc(alunosCollection, novoAluno);
+        alert("Aluno adicionado com sucesso!");
+        studentForm.reset();
+      } catch (error) {
+        console.error("Erro ao inserir aluno: ", error);
+      }
+    });
+
+    // -------------------------------------------------------------
+    // d. Listar todos os registros de aluno (em tempo real)
+    // -------------------------------------------------------------
+    const alunosList = document.getElementById("alunos-list");
+
+    onSnapshot(alunosCollection, (snapshot) => {
+      alunosList.innerHTML = ""; // Limpa a tabela antes de recarregar
+
+      snapshot.forEach((docSnap) => {
+        const aluno = docSnap.data();
+        const id = docSnap.id;
+
+        // Converter Timestamp de volta para formato de data legível (DD/MM/AAAA)
+        let dataFormatada = "";
+        if (aluno.data_nascimento && aluno.data_nascimento.toDate) {
+          const dateObj = aluno.data_nascimento.toDate();
+          dataFormatada = dateObj.toLocaleDateString("pt-BR");
+        }
+
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${aluno.cod_aluno || ''}</td>
+          <td>${aluno.nome || ''}</td>
+          <td>${aluno.cpf || ''}</td>
+          <td>${aluno.rg || ''}</td>
+          <td>${aluno.telefone_aluno || ''}</td>
+          <td>${aluno.telefone_responsavel || ''}</td>
+          <td>${aluno.email || ''}</td>
+          <td>${dataFormatada}</td>
+          <td>
+            <button class="delete-btn" onclick="deletarAluno('${id}')">Excluir</button>
+          </td>
+        `;
+        alunosList.appendChild(tr);
+      });
+    });
+
+    // -------------------------------------------------------------
+    // e. Excluir um registro de aluno
+    // -------------------------------------------------------------
+    window.deletarAluno = async (id) => {
+      if (confirm("Tem certeza que deseja excluir este aluno?")) {
+        try {
+          const docRef = doc(db, "BD3-NoSQL-Firestore", id);
+          await deleteDoc(docRef);
+          alert("Aluno excluído com sucesso!");
+        } catch (error) {
+          console.error("Erro ao excluir aluno: ", error);
+        }
+      }
+    };
+  </script>
+</body>
+</html>
